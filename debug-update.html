@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Update Functionality</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .employee-card { border: 1px solid #ccc; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .form-group { margin: 10px 0; }
+        label { display: block; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 8px; margin-bottom: 10px; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .update-btn { background: #28a745; }
+        .update-btn:hover { background: #1e7e34; }
+        .logs { background: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 20px; }
+        .log-entry { margin: 5px 0; padding: 5px; border-left: 3px solid #007bff; }
+        .error { border-left-color: #dc3545; color: #dc3545; }
+        .success { border-left-color: #28a745; color: #28a745; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Employee Update Debug Tool</h1>
+        
+        <div id="employeeList">
+            <h2>Current Employees</h2>
+            <div id="employees"></div>
+        </div>
+        
+        <div id="updateForm" style="display: none;">
+            <h2>Update Employee</h2>
+            <div class="employee-card">
+                <div class="form-group">
+                    <label for="updateName">Name:</label>
+                    <input type="text" id="updateName" required>
+                </div>
+                <div class="form-group">
+                    <label for="updatePosition">Position:</label>
+                    <input type="text" id="updatePosition" required>
+                </div>
+                <div class="form-group">
+                    <label for="updateLocation">Location:</label>
+                    <input type="text" id="updateLocation" required>
+                </div>
+                <div class="form-group">
+                    <label for="updateSalary">Salary:</label>
+                    <input type="number" id="updateSalary" required>
+                </div>
+                <button type="button" class="update-btn" onclick="updateEmployee()">Update Employee</button>
+                <button type="button" onclick="cancelUpdate()">Cancel</button>
+            </div>
+        </div>
+        
+        <div class="logs">
+            <h3>Debug Log</h3>
+            <div id="debugLog"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentEmployeeId = null;
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('debugLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerHTML = `[${timestamp}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        async function loadEmployees() {
+            try {
+                log('Loading employees from /api/employeelist...');
+                const response = await fetch('/api/employeelist');
+                const data = await response.json();
+                
+                log(`Response status: ${response.status}`, response.ok ? 'success' : 'error');
+                log(`Response data: ${JSON.stringify(data)}`);
+                
+                if (data.success && data.data) {
+                    displayEmployees(data.data);
+                    log(`Loaded ${data.data.length} employees successfully`, 'success');
+                } else {
+                    log('Failed to load employees: ' + JSON.stringify(data), 'error');
+                }
+            } catch (error) {
+                log('Error loading employees: ' + error.message, 'error');
+            }
+        }
+        
+        function displayEmployees(employees) {
+            const container = document.getElementById('employees');
+            container.innerHTML = '';
+            
+            employees.forEach(employee => {
+                const card = document.createElement('div');
+                card.className = 'employee-card';
+                card.innerHTML = `
+                    <strong>${employee.name}</strong><br>
+                    Position: ${employee.position}<br>
+                    Location: ${employee.location}<br>
+                    Salary: $${employee.salary}<br>
+                    <button onclick="editEmployee('${employee._id}')">Edit</button>
+                `;
+                container.appendChild(card);
+            });
+        }
+        
+        async function editEmployee(id) {
+            try {
+                log(`Editing employee with ID: ${id}`);
+                currentEmployeeId = id;
+                
+                // Fetch specific employee data
+                log(`Fetching employee data from /api/employeelist/${id}...`);
+                const response = await fetch(`/api/employeelist/${id}`);
+                const data = await response.json();
+                
+                log(`Fetch response status: ${response.status}`, response.ok ? 'success' : 'error');
+                log(`Fetch response data: ${JSON.stringify(data)}`);
+                
+                if (data.success && data.data) {
+                    const employee = data.data;
+                    document.getElementById('updateName').value = employee.name;
+                    document.getElementById('updatePosition').value = employee.position;
+                    document.getElementById('updateLocation').value = employee.location;
+                    document.getElementById('updateSalary').value = employee.salary;
+                    
+                    document.getElementById('updateForm').style.display = 'block';
+                    log('Edit form populated successfully', 'success');
+                } else {
+                    log('Failed to fetch employee data: ' + JSON.stringify(data), 'error');
+                }
+            } catch (error) {
+                log('Error fetching employee for edit: ' + error.message, 'error');
+            }
+        }
+        
+        async function updateEmployee() {
+            try {
+                log('Starting update process...');
+                
+                const updateData = {
+                    name: document.getElementById('updateName').value,
+                    position: document.getElementById('updatePosition').value,
+                    location: document.getElementById('updateLocation').value,
+                    salary: parseInt(document.getElementById('updateSalary').value)
+                };
+                
+                log(`Update data: ${JSON.stringify(updateData)}`);
+                log(`Sending PUT request to /api/employeelist/${currentEmployeeId}...`);
+                
+                const response = await fetch(`/api/employeelist/${currentEmployeeId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(updateData)
+                });
+                
+                log(`Update response status: ${response.status}`, response.ok ? 'success' : 'error');
+                
+                const responseData = await response.json();
+                log(`Update response data: ${JSON.stringify(responseData)}`);
+                
+                if (response.ok && responseData.success) {
+                    log('Employee updated successfully!', 'success');
+                    cancelUpdate();
+                    loadEmployees(); // Reload the list
+                } else {
+                    log('Update failed: ' + JSON.stringify(responseData), 'error');
+                }
+            } catch (error) {
+                log('Error during update: ' + error.message, 'error');
+            }
+        }
+        
+        function cancelUpdate() {
+            document.getElementById('updateForm').style.display = 'none';
+            currentEmployeeId = null;
+            log('Update cancelled');
+        }
+        
+        // Load employees on page load
+        window.onload = function() {
+            log('Page loaded, initializing...');
+            loadEmployees();
+        };
+    </script>
+</body>
+</html>
